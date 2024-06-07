@@ -28,7 +28,7 @@ def load_chain(update=False):
         
     # Load our local FAISS index as a retriever
     vector_store = FAISS.load_local("faiss_index", embeddings,allow_dangerous_deserialization=True)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+    retriever = vector_store.as_retriever(search_kwargs={"k": 5})
     
     # Create memory 'chat_history' 
     memory = ConversationBufferWindowMemory(k=3,memory_key="chat_history")
@@ -42,11 +42,11 @@ def load_chain(update=False):
 
     # Create system prompt
     template = """
-    You are an AI assistant for answering questions about the hugo's minerva notes
+    You are an AI assistant for answering questions about the hugo's minerva experience and notes
     You are given the following extracted parts of a long document and a question. Provide a conversational answer.
     If you are not at least 70 percent sure of your answer, just answer 'Sorry, I don't know... 😔', and then give information about something only if it is 80 percent relevant. 
     Don't try to make up an answer. Don't say something irrelevant please.
-
+    Don't use chat history if it's not related to the query.
     {context}
     Question: {question}
     Helpful Answer:"""
@@ -66,21 +66,12 @@ def update_embeddings(docs):
     
     # Split documents into smaller chunks
     markdown_splitter = RecursiveCharacterTextSplitter(
-        separators=["#", "##", "###", "\n\n", "\n", "."],
-        chunk_size=1024,
-        chunk_overlap=100)
+        separators=["#", "##", "###", "\n\n", "\n", ".", "!", "?"],
+        chunk_size=2048,
+        chunk_overlap=500)
     
     new_docs = markdown_splitter.split_documents(docs)
     print(new_docs)
-    
-    # # Update FAISS index with new document embeddings
-    # # Initialize OpenAI embedding model
-    # embeddings = OpenAIEmbeddings()
-
-    # Convert all chunks into vectors embeddings using OpenAI embedding model
-    # Store all vectors in FAISS index and save locally to 'faiss_index'
-    # db2 = FAISS.from_documents(new_docs, embeddings)
-    # db1.merge_from(db2)
     db1.add_documents(new_docs)
     db1.save_local("faiss_index")
     

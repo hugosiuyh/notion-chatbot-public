@@ -6,12 +6,12 @@ from langchain_community.document_loaders import PyPDFLoader
 import tempfile
 
 # Custom image for the app icon and the assistant's avatar
-company_logo = os.path.join(os.path.dirname(__file__), 'company_logo.png')
+company_logo = os.path.join(os.path.dirname(__file__), 'logo.png')
 
 
 # Configure streamlit page
 st.set_page_config(
-    page_title="Your Notion Chatbot",
+    page_title="Hugo's Notion Chatbot",
     page_icon=company_logo
 )
 # Display the heading
