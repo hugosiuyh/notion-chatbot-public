@@ -55,6 +55,10 @@ if uploaded_files:
                     update_embeddings(documents)
                     st.sidebar.success("Documents uploaded and processed successfully!")
                     st.session_state['chain'] = load_chain(update=True)
+                      
+                # Clear the uploaded files
+                st.sidebar.empty()  # Clears the document upload UI
+                st.session_state.uploaded_files = []  # Reset the uploaded files in session state
             else:
                 st.sidebar.error(f"Please upload a PDF file. The file {uploaded_file.name} is not a PDF.")
         except Exception as e:
