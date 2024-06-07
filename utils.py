@@ -2,30 +2,32 @@ import streamlit as st
 import openai
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferWindowMemory
-from langchain.chat_models import ChatOpenAI
-from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.chat_models import ChatOpenAI
+from langchain_community.vectorstores import FAISS
+from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import SystemMessagePromptTemplate
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader
 
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 @st.cache_resource
-def load_chain():
+def load_chain(update=False):
     """
     The `load_chain()` function initializes and configures a conversational retrieval chain for
     answering user questions.
     :return: The `load_chain()` function returns a ConversationalRetrievalChain object.
     """
-
-    # Load OpenAI embedding model
+    # if update==False: 
+    #     # Load OpenAI embedding model
     embeddings = OpenAIEmbeddings()
-    
+        
     # Load OpenAI chat model
     llm = ChatOpenAI(temperature=0)
-    
+        
     # Load our local FAISS index as a retriever
-    vector_store = FAISS.load_local("faiss_index", embeddings)
+    vector_store = FAISS.load_local("faiss_index", embeddings,allow_dangerous_deserialization=True)
     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
     
     # Create memory 'chat_history' 
@@ -33,18 +35,17 @@ def load_chain():
 
     # Create the Conversational Chain
     chain = ConversationalRetrievalChain.from_llm(llm, 
-                                                  retriever=retriever, 
-                                                  memory=memory, 
-                                                  get_chat_history=lambda h : h,
-                                                  verbose=True)
+                                                retriever=retriever, 
+                                                memory=memory, 
+                                                get_chat_history=lambda h : h,
+                                                verbose=True)
 
     # Create system prompt
     template = """
-    You are an AI assistant for answering questions about the Blendle Employee Handbook.
+    You are an AI assistant for answering questions about the hugo's minerva notes
     You are given the following extracted parts of a long document and a question. Provide a conversational answer.
-    If you don't know the answer, just say 'Sorry, I don't know... 😔'.
-    Don't try to make up an answer.
-    If the question is not about the Blendle Employee Handbook, politely inform them that you are tuned to only answer questions about the Blendle Employee Handbook.
+    If you are not at least 70 percent sure of your answer, just answer 'Sorry, I don't know... 😔', and then give information about something only if it is 80 percent relevant. 
+    Don't try to make up an answer. Don't say something irrelevant please.
 
     {context}
     Question: {question}
@@ -55,3 +56,32 @@ def load_chain():
     chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate(prompt=QA_CHAIN_PROMPT)
 
     return chain
+
+def update_embeddings(docs):
+    # Load existing FAISS index if available, otherwise create a new one
+    try:
+        db1 = FAISS.load_local("faiss_index", OpenAIEmbeddings(),allow_dangerous_deserialization=True)
+    except:
+        db1 = FAISS.from_documents([], OpenAIEmbeddings())
+    
+    # Split documents into smaller chunks
+    markdown_splitter = RecursiveCharacterTextSplitter(
+        separators=["#", "##", "###", "\n\n", "\n", "."],
+        chunk_size=1024,
+        chunk_overlap=100)
+    
+    new_docs = markdown_splitter.split_documents(docs)
+    print(new_docs)
+    
+    # # Update FAISS index with new document embeddings
+    # # Initialize OpenAI embedding model
+    # embeddings = OpenAIEmbeddings()
+
+    # Convert all chunks into vectors embeddings using OpenAI embedding model
+    # Store all vectors in FAISS index and save locally to 'faiss_index'
+    # db2 = FAISS.from_documents(new_docs, embeddings)
+    # db1.merge_from(db2)
+    db1.add_documents(new_docs)
+    db1.save_local("faiss_index")
+    
+    print('Local FAISS index has been successfully updated.')

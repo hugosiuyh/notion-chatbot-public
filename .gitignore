@@ -2,3 +2,4 @@ notion_content/
 .streamlit/
 .DS_Store
 __pycache__
+notion_content/

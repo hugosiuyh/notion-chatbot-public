@@ -1,25 +1,31 @@
+import os
 import time
 import streamlit as st
-from utils import load_chain
+from utils import load_chain, update_embeddings
+from langchain_community.document_loaders import PyPDFLoader
+import tempfile
 
 # Custom image for the app icon and the assistant's avatar
-company_logo = 'https://blendle.com/img/packaging/android-touch-icon-196x196.png'
+company_logo = os.path.join(os.path.dirname(__file__), 'company_logo.png')
+
 
 # Configure streamlit page
 st.set_page_config(
     page_title="Your Notion Chatbot",
     page_icon=company_logo
 )
+# Display the heading
+st.title("Your Notion Chatbot")
 
 # Initialize LLM chain in session_state
 if 'chain' not in st.session_state:
-    st.session_state['chain']= load_chain()
+    st.session_state['chain'] = load_chain()
 
 # Initialize chat history
 if 'messages' not in st.session_state:
     # Start with first message from assistant
     st.session_state['messages'] = [{"role": "assistant", 
-                                  "content": "Hi human! I am Blendle's smart AI. How can I help you today?"}]
+                                  "content": "Hi Hugo! I am your personal Chatgbt. How can I help you today?"}]
 
 # Display chat messages from history on app rerun
 # Custom avatar for the assistant, default avatar for user
@@ -31,6 +37,29 @@ for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+# Document upload section
+st.sidebar.header("Upload Documents")
+uploaded_files = st.sidebar.file_uploader("Upload your documents here", accept_multiple_files=True)
+
+if uploaded_files:
+    st.sidebar.write("Processing uploaded documents...")
+    for uploaded_file in uploaded_files:
+        try:
+            if uploaded_file.type == "application/pdf":
+                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                    tmp_file.write(uploaded_file.read())
+                    tmp_file_path = tmp_file.name
+                    
+                    loader = PyPDFLoader(tmp_file_path)
+                    documents = loader.load()
+                    update_embeddings(documents)
+                    st.sidebar.success("Documents uploaded and processed successfully!")
+                    st.session_state['chain'] = load_chain(update=True)
+            else:
+                st.sidebar.error(f"Please upload a PDF file. The file {uploaded_file.name} is not a PDF.")
+        except Exception as e:
+            st.sidebar.error(f"Error processing file {uploaded_file.name}: {e}")
+    
 # Chat logic
 if query := st.chat_input("Ask me anything"):
     # Add user message to chat history
